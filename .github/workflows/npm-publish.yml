@@ -23,8 +23,21 @@ jobs:
       - name: Extract version from tag
         id: extract_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+      - name: Check current version
+        id: check_version
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION=${{ steps.extract_version.outputs.VERSION }}
+          if [ "$CURRENT_VERSION" != "$TAG_VERSION" ]; then
+            echo "UPDATE_VERSION=true" >> $GITHUB_OUTPUT
+          else
+            echo "UPDATE_VERSION=false" >> $GITHUB_OUTPUT
+          fi
+          echo "Current: $CURRENT_VERSION, Tag: $TAG_VERSION"
         
       - name: Update version in package.json
+        if: steps.check_version.outputs.UPDATE_VERSION == 'true'
         run: npm version ${{ steps.extract_version.outputs.VERSION }} --no-git-tag-version
         
       - name: Install Playwright browsers
