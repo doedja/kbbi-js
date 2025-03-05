@@ -36,5 +36,6 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/doedja/kbbi-js.git"
-  }
+  },
+  "homepage": "https://github.com/doedja/kbbi-js#readme"
 }
