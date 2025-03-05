@@ -1,0 +1,7 @@
+.cursor
+.github
+data/
+debug/
+node_modules/
+web/
+llm.txt
