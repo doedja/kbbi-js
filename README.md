@@ -13,7 +13,11 @@ Unofficial JavaScript library for accessing KBBI (Kamus Besar Bahasa Indonesia) 
 ## Installation
 
 ```bash
-npm install -g kbbi-js
+# Install globally
+npm install -g @doedja/kbbi-js
+
+# Or use without installing
+npx @doedja/kbbi-js [command]
 ```
 
 ## Command Line Usage
@@ -21,13 +25,21 @@ npm install -g kbbi-js
 ### Basic Lookup
 
 ```bash
+# If installed globally
 kbbi cinta
+
+# Using npx (recommended)
+npx @doedja/kbbi-js cinta
 ```
 
 ### JSON Output
 
 ```bash
+# If installed globally
 kbbi cinta --json
+
+# Using npx
+npx @doedja/kbbi-js cinta --json
 ```
 
 Output:
@@ -55,53 +67,72 @@ Output:
 ### Enhanced Scrape Mode
 
 ```bash
+# If installed globally
 kbbi cinta --scrape
+
+# Using npx
+npx @doedja/kbbi-js cinta --scrape
 ```
 
 Combine with JSON:
 ```bash
+# If installed globally
 kbbi cinta --scrape --json
+
+# Using npx
+npx @doedja/kbbi-js cinta --scrape --json
 ```
 
 ### Authentication
 
 Login interactively:
 ```bash
+# If installed globally
 kbbi --login
+
+# Using npx
+npx @doedja/kbbi-js --login
 ```
 
 Cookie management:
 ```bash
-# Add a cookie
+# If installed globally
 kbbi --cookie-manage add:YOUR_COOKIE_VALUE
-
-# List all cookies
 kbbi --cookie-manage list
-
-# Delete a cookie
 kbbi --cookie-manage delete:COOKIE_VALUE
+
+# Using npx
+npx @doedja/kbbi-js --cookie-manage add:YOUR_COOKIE_VALUE
+npx @doedja/kbbi-js --cookie-manage list
+npx @doedja/kbbi-js --cookie-manage delete:COOKIE_VALUE
 ```
 
 ### Debug Options
 
 ```bash
-# Save HTML files for debugging
+# If installed globally
 kbbi cinta --debug
-
-# Show browser UI
 kbbi cinta --visible
+
+# Using npx
+npx @doedja/kbbi-js cinta --debug
+npx @doedja/kbbi-js cinta --visible
 ```
 
 ### Help
 
 ```bash
+# If installed globally
 kbbi --help
+
+# Using npx
+npx @doedja/kbbi-js --help
 ```
 
 ## JavaScript API
 
 ```javascript
-const kbbi = require('kbbi-js');
+const kbbi = require('@doedja/kbbi-js');
 
 async function lookupWord() {
   try {
@@ -122,7 +153,7 @@ async function lookupWord() {
 ## With Cookie Rotation
 
 ```javascript
-const kbbi = require('kbbi-js');
+const kbbi = require('@doedja/kbbi-js');
 
 async function lookup() {
   try {
