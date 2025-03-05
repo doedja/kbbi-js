@@ -1,6 +1,6 @@
 {
   "name": "@doedja/kbbi-js",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "JavaScript library for accessing KBBI (Kamus Besar Bahasa Indonesia) with anti-Cloudflare protection",
   "main": "kbbi.js",
   "bin": {
