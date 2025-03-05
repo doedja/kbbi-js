@@ -1,0 +1,40 @@
+{
+  "name": "@doedja/kbbi-js",
+  "version": "1.0.0",
+  "description": "JavaScript library for accessing KBBI (Kamus Besar Bahasa Indonesia) with anti-Cloudflare protection",
+  "main": "kbbi.js",
+  "bin": {
+    "kbbi": "cli.js"
+  },
+  "scripts": {
+    "start": "node cli.js",
+    "lookup": "node cli.js",
+    "login": "node cli.js --browser-login",
+    "prepare": "npx playwright install chromium"
+  },
+  "keywords": [
+    "kbbi",
+    "indonesia",
+    "dictionary",
+    "bahasa",
+    "indonesia",
+    "cloudflare"
+  ],
+  "author": "Doedja",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "cheerio": "^1.0.0-rc.12",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "playwright": "^1.39.0",
+    "playwright-chromium": "^1.39.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/doedja/kbbi-js.git"
+  }
+}
