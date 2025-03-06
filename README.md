@@ -60,7 +60,7 @@ Output:
       ]
     }
   ],
-  "saran": []
+  "mirip": []
 }
 ```
 
