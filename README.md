@@ -2,6 +2,8 @@
 
 Unofficial JavaScript library for accessing KBBI (Kamus Besar Bahasa Indonesia) with anti-Cloudflare protection.
 
+> **Important:** This library requires cache (cookies) to function properly. The KBBI site enforces limitations on unauthenticated users, so authentication via cookies is necessary for reliable access.
+
 ## Features
 
 - Access the official KBBI dictionary with detailed entry information
