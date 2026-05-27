@@ -1,20 +1,15 @@
 /**
- * KBBI-JS Playwright Implementation
- * 
- * This module uses the core functionality to provide a Playwright-based implementation
- * of the KBBI dictionary API. This allows for more reliable access by using a real browser
- * to bypass Cloudflare protection.
- * 
- * Requirements:
- * - npm install playwright
+ * KBBI-JS
+ *
+ * Anonymous lookups use the built-in HTTPS stack (`fetch`). The optional
+ * Playwright fallback is only loaded when the caller explicitly requests it,
+ * so the package stays useful without a 130 MB Chromium download.
  */
 
-const path = require('path');
-const BrowserManager = require('./lib/browser');
 const KBBIParser = require('./lib/parser');
 const Utils = require('./lib/utils');
 const Auth = require('./lib/auth');
-const { CloudflareBlockError, NotFoundError } = require('./lib/errors');
+const { HttpClient } = require('./lib/http');
 const { KBBIScraper } = require('./scrape');
 
 class KBBI {
@@ -22,92 +17,94 @@ class KBBI {
     this.options = {
       headless: true,
       debug: false,
-      cookiesPath: path.join(__dirname, 'data', 'kbbi-cookies.json'),
+      timeout: 20000,
+      useBrowser: false,
       ...options
     };
-    
-    this.browser = null;
-    this.authenticated = false;
-    this.auth = new Auth();
+
+    this.auth = options.auth || new Auth();
   }
 
   async lookup(word) {
     if (!word) throw new Error('No word provided');
 
-    try {
-      // Initialize browser
-      this.browser = new BrowserManager({
-        headless: this.options.headless,
-        debug: this.options.debug
-      });
-
-      await this.browser.initBrowser();
-      
-      // Get authentication cookie (with rotation support)
-      const cookieString = await this.auth.getCookieString();
-      if (cookieString) {
-        await this.browser.setCustomCookie(cookieString);
-      }
-
-      // Navigate to word page
-      const url = Utils.buildUrl(word);
-      const html = await this.browser.navigateTo(url);
-
-      if (!html) {
-        throw new Error('Failed to fetch page content');
-      }
-
-      // Check for Cloudflare
-      const isCloudflare = await this.browser.checkCloudflare();
-      if (isCloudflare) {
-        if (!this.options.headless) {
-          console.log('Please solve the Cloudflare challenge in the browser window...');
-          await this.browser.page.waitForNavigation({ 
-            waitUntil: 'domcontentloaded',
-            timeout: 45000
-          });
-      } else {
-          throw new CloudflareBlockError();
-        }
-      }
-
-      // Parse the page
-      const parser = new KBBIParser(html);
-      this.authenticated = parser.checkAuthentication();
-      const { entries, mirip } = parser.parseEntries();
-
-      return {
-            word,
-        authenticated: this.authenticated,
-        entries,
-        mirip
-      };
-    } catch (error) {
-      throw error;
-    } finally {
-      if (this.browser) {
-        await this.browser.close();
-      }
+    if (this.options.useBrowser) {
+      return this._lookupWithBrowser(word);
     }
+
+    const http = new HttpClient({ timeout: this.options.timeout });
+    const cookieValue = await this.auth.getRandomCookie();
+    if (cookieValue) {
+      http.jar.setRaw('.AspNet.ApplicationCookie', cookieValue);
+    }
+
+    const { ok, status, text } = await http.getText(Utils.buildUrl(word));
+    if (!ok) {
+      throw new Error(`KBBI returned HTTP ${status} for "${word}"`);
+    }
+
+    const parser = new KBBIParser(text);
+    const authenticated = parser.checkAuthentication();
+    const { entries, mirip } = parser.parseEntries();
+
+    return {
+      word,
+      authenticated,
+      entries,
+      mirip: mirip || []
+    };
   }
 
   async scrape(word) {
     if (!word) throw new Error('No word provided');
 
-    try {
-      const scraper = new KBBIScraper({
-        headless: this.options.headless,
-        debug: this.options.debug,
-        timeout: 45000,
-        stealth: true,
-        auth: this.auth // Pass auth object for cookie rotation
-      });
+    const scraper = new KBBIScraper({
+      headless: this.options.headless,
+      debug: this.options.debug,
+      timeout: this.options.timeout,
+      useBrowser: this.options.useBrowser,
+      silent: this.options.silent,
+      auth: this.auth
+    });
+    return scraper.scrapeWord(word);
+  }
 
-      return await scraper.scrapeWord(word);
-    } catch (error) {
-      throw error;
+  async _lookupWithBrowser(word) {
+    const BrowserManager = require('./lib/browser');
+    const { CloudflareBlockError } = require('./lib/errors');
+
+    const browser = new BrowserManager({
+      headless: this.options.headless,
+      debug: this.options.debug
+    });
+
+    try {
+      await browser.initBrowser();
+      const cookieString = await this.auth.getCookieString();
+      if (cookieString) {
+        await browser.setCustomCookie(cookieString);
+      }
+
+      const html = await browser.navigateTo(Utils.buildUrl(word));
+      if (!html) throw new Error('Failed to fetch page content');
+
+      const isCloudflare = await browser.checkCloudflare();
+      if (isCloudflare) {
+        if (!this.options.headless) {
+          await browser.page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 45000 });
+        } else {
+          throw new CloudflareBlockError();
+        }
+      }
+
+      const parser = new KBBIParser(html);
+      const authenticated = parser.checkAuthentication();
+      const { entries, mirip } = parser.parseEntries();
+      return { word, authenticated, entries, mirip: mirip || [] };
+    } finally {
+      await browser.close();
     }
   }
 }
 
-module.exports = KBBI; 
+module.exports = KBBI;

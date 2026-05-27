@@ -1,184 +1,156 @@
 # KBBI-JS
 
-Unofficial JavaScript library for accessing KBBI (Kamus Besar Bahasa Indonesia) with anti-Cloudflare protection.
+Unofficial JavaScript library and CLI for the official Kamus Besar Bahasa Indonesia at `kbbi.kemendikdasmen.go.id`. Anonymous lookups out of the box, optional login for etymology data.
 
-> **Important:** This library requires cache (cookies) to function properly. The KBBI site enforces limitations on unauthenticated users, so authentication via cookies is necessary for reliable access.
+## Highlights
 
-## Features
+- **No account required.** Anonymous lookups return the full meanings, word classes, and examples.
+- **No browser required.** Native `fetch` (Node 18+) by default. The Playwright path is optional and only loads when you ask for it.
+- **Lean install.** ~9 MB of dependencies, zero Chromium download in the default flow.
+- **Fast.** Single lookup in under 1 second; a 13-word batch finishes in around 3 seconds at `--concurrency 4`.
+- **Programmatic login.** Login is a plain HTTPS POST against the ASP.NET MVC form. No headless browser needed.
+- **Batch CLI.** Pass multiple words on one command; results are emitted as a JSON array or formatted text.
 
-- Access the official KBBI dictionary with detailed entry information
-- Anti-Cloudflare strategy using headless browser automation
-- Concise command-line interface with JSON output option
-- Cookie rotation to distribute requests and avoid rate limiting
-- Support for all entry types, word classes, etymologies, and related words
+## Why version 2
+
+The KBBI portal moved from `kbbi.kemdikbud.go.id` to `kbbi.kemendikdasmen.go.id` after the Indonesian ministry was reorganised, and the old hostname is no longer in DNS. Version 2 retargets the new host, removes the hard Playwright dependency, and exposes the cookie path as opt-in (it was treated as required in 1.x).
 
 ## Installation
 
 ```bash
-# Install globally
+# Default install. No Chromium download.
 npm install -g @doedja/kbbi-js
 
-# Or use without installing
-npx @doedja/kbbi-js [command]
-```
-
-## Command Line Usage
-
-### Basic Lookup
-
-```bash
-# If installed globally
-kbbi cinta
-
-# Using npx (recommended)
+# One-off, no install:
 npx @doedja/kbbi-js cinta
 ```
 
-### JSON Output
+Need the optional browser fallback?
 
 ```bash
-# If installed globally
-kbbi cinta --json
-
-# Using npx
-npx @doedja/kbbi-js cinta --json
+npm install playwright
+npx playwright install chromium
 ```
 
-Output:
+## CLI
+
+```bash
+kbbi cinta
+kbbi cinta makan air                     # batch, parallel
+kbbi cinta --json
+kbbi cinta --scrape --json               # adds eid + etymology when logged in
+kbbi --login --email you@example.com --password '...'
+kbbi --cookie-manage list
+kbbi --cookie-manage add:AspNetCookieValue
+kbbi --cookie-manage delete:AspNetCookieValue
+kbbi cinta --browser                     # optional Playwright path
+kbbi --help
+```
+
+Anonymous JSON output:
+
 ```json
 {
   "kata": "cinta",
+  "host": "kbbi.kemendikdasmen.go.id",
+  "authenticated": false,
   "entri": [
     {
-      "nama": "cinta",
-      "jenis": "dasar",
+      "nama": "cin.ta",
+      "nomor": "",
+      "id": null,
+      "akarkata": "",
+      "jenis": "",
       "makna": [
         {
           "definisi": "suka sekali; sayang benar",
-          "kelaskata": [
-            { "kode": "a", "nama": "Adjektiva" }
+          "kelaskata": [{ "kode": "a", "nama": "Adjektiva" }],
+          "contoh": [
+            { "nomor": 1, "teks": "orang tuaku -- kepada kami semua" },
+            { "nomor": 2, "teks": "-- kepada sesama makhluk" }
           ]
         }
-      ]
+      ],
+      "etimologi": null,
+      "turunan": [],
+      "gabungan": [],
+      "peribahasa": [],
+      "idiom": []
     }
   ],
   "mirip": []
 }
 ```
 
-### Enhanced Scrape Mode
+When more than one word is given, the command emits a JSON array (one record per word). Failed lookups are reported as `{ "kata": "...", "error": "..." }` entries and set a non-zero exit code.
 
-```bash
-# If installed globally
-kbbi cinta --scrape
+### What anonymous vs authenticated unlocks
 
-# Using npx
-npx @doedja/kbbi-js cinta --scrape
-```
-
-Combine with JSON:
-```bash
-# If installed globally
-kbbi cinta --scrape --json
-
-# Using npx
-npx @doedja/kbbi-js cinta --scrape --json
-```
-
-### Authentication
-
-Login interactively:
-```bash
-# If installed globally
-kbbi --login
-
-# Using npx
-npx @doedja/kbbi-js --login
-```
-
-Cookie management:
-```bash
-# If installed globally
-kbbi --cookie-manage add:YOUR_COOKIE_VALUE
-kbbi --cookie-manage list
-kbbi --cookie-manage delete:COOKIE_VALUE
-
-# Using npx
-npx @doedja/kbbi-js --cookie-manage add:YOUR_COOKIE_VALUE
-npx @doedja/kbbi-js --cookie-manage list
-npx @doedja/kbbi-js --cookie-manage delete:COOKIE_VALUE
-```
-
-### Debug Options
-
-```bash
-# If installed globally
-kbbi cinta --debug
-kbbi cinta --visible
-
-# Using npx
-npx @doedja/kbbi-js cinta --debug
-npx @doedja/kbbi-js cinta --visible
-```
-
-### Help
-
-```bash
-# If installed globally
-kbbi --help
-
-# Using npx
-npx @doedja/kbbi-js --help
-```
+| Field                 | Anonymous | Logged in |
+| --------------------- | --------- | --------- |
+| `nama`, `nomor`       | Yes       | Yes       |
+| `makna` definitions   | Yes       | Yes       |
+| `kelaskata`           | Yes       | Yes       |
+| `contoh` examples     | Yes       | Yes       |
+| `etimologi`           | No (gated by KBBI server) | Yes |
+| `turunan`, `gabungan`, `peribahasa`, `idiom` | No (KBBI hides them) | Yes |
+| `id` (eid)            | No (hidden in edit links) | Yes |
+| `--scrape` Phase 2 (`/DataDasarEntri/Details`) | Skipped (server redirects to login) | Followed |
 
 ## JavaScript API
 
-```javascript
-const kbbi = require('@doedja/kbbi-js');
+```js
+const KBBI = require('@doedja/kbbi-js');
 
-async function lookupWord() {
-  try {
-    const result = await kbbi.create('cinta');
-    console.log(result.toString());
-    
-    // Get JSON data
-    const data = result.serialize();
-    console.log(JSON.stringify(data, null, 2));
-  } catch (error) {
-    console.error('Error:', error.message);
-  } finally {
-    await kbbi.closeBrowser();
-  }
-}
+(async () => {
+  const kbbi = new KBBI(); // no options needed
+  const result = await kbbi.lookup('cinta');
+  console.log(result.authenticated, result.entries.length, 'meanings');
+})();
 ```
 
-## With Cookie Rotation
+Optional configuration:
 
-```javascript
-const kbbi = require('@doedja/kbbi-js');
-
-async function lookup() {
-  try {
-    // Use multiple cookies for rotation
-    const cookieValues = [
-      'COOKIE_VALUE_1',
-      'COOKIE_VALUE_2'
-    ];
-    
-    const result = await kbbi.create('cinta', cookieValues);
-    console.log(result.toString());
-  } catch (error) {
-    console.error('Error:', error.message);
-  } finally {
-    await kbbi.closeBrowser();
-  }
-}
+```js
+const kbbi = new KBBI({
+  useBrowser: false,   // set true to force the Playwright fallback
+  headless: true,
+  debug: false,
+  timeout: 20000
+});
 ```
 
-## How It Works
+### With stored cookies (optional)
 
-KBBI-JS uses Playwright for browser automation to access the KBBI website, enabling reliable access despite Cloudflare protection. The browser runs in headless mode by default but can be made visible for debugging.
+```js
+const Auth = require('@doedja/kbbi-js/lib/auth');
+const auth = new Auth();
+await auth.addCookie('AspNetCookieValue');
+const kbbi = new KBBI({ auth });
+```
+
+### Programmatic login (no browser)
+
+```js
+const auth = new Auth();
+await auth.login('you@example.com', 'secret');
+// Cookie is now persisted under data/kbbi-cookies.json and reused on next lookups.
+```
+
+## How it works
+
+1. CLI parses positional args as words and any `--flag value` pairs.
+2. Each lookup hits `https://kbbi.kemendikdasmen.go.id/entri/<word>` via `fetch`.
+3. `lib/parser.js` (Cheerio) walks the `h2[style*="margin-bottom:3px"]` headings and their following `<ol>` / `<ul>` lists into `{ nama, nomor, makna[], etimologi, terkait }`.
+4. `--scrape` adds a per-eid call to `/DataDasarEntri/Details` for callers that supplied a session cookie. The endpoint redirects anonymous callers to `/Account/Login`, so it is skipped silently in that case.
+5. `--browser` swaps step 2 for a headless Chromium via Playwright. Use it only if KBBI ever fronts the site with Cloudflare or another JS challenge.
+
+## Notes
+
+- KBBI gates some data (etymology, derivations, idioms, edit-page IDs) to logged-in accounts on the server side. There is no way to retrieve those fields without a session cookie.
+- Login uses a normal ASP.NET MVC POST with the `__RequestVerificationToken` cookie + form-token pair. No captcha as of this writing; if KBBI adds one, the `--browser --login` combination (after installing Playwright) is the fallback.
+- The legacy `--save-cookie`, `--add-cookie`, and `--list-cookies` flags from 1.x were dropped in favour of `--cookie-manage`. Calling `--login` now expects `--email` and `--password`.
 
 ## License
 
-MIT 
+MIT
